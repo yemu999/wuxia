@@ -608,48 +608,63 @@ focus:border-primary" rows="2"></textarea></div>
 
 <script>
     // ==================== 安全与监控系统 (上线前请修改) ====================
-    // 1. 你的专属授权码（合作者必须输入此密码才能进入系统，你随时可以修改密码让他进不去）
-    const AUTH_CODE = "888888"; 
+    // 1. 多账号授权码配置（你可以随意添加、修改或删除。格式："密码": "使用者名字"）
+    const USER_ACCOUNTS = {
+        "888888": "一场梦",
+        "666666": "李四",
+        "123456": "王五"
+    };
     
-    // 2. 你的专属域名（填你部署后的网址，如 'yourname.github.io' 或 'gitee.com'。可防止他把网页代码拔下来存到别的地方运行。测试期间如果想在本地运行可暂时留空）
+    // 2. 作者本地解锁码（你自己双击打开本地 HTML 测试时使用的超级密码，千万别告诉合作者！）
+    const LOCAL_AUTHOR_CODE = "20103375"; 
+
+    // 3. 你的专属域名（填你部署后的网址，如 'yourname.github.io'，防止代码被搬运到其他网站，测试期间可留空）
     const ALLOWED_DOMAIN = ""; 
     
-    // 3. Webhook 监控机器人链接（在飞书/钉钉/企业微信群里新建一个自定义机器人，把 webhook 网址填在这里，就能实时收到他的使用动态）
+    // 4. Webhook 监控机器人链接（接收对方抽奖动态的通知链接，比如钉钉或飞书的机器人 Webhook URL）
     const WEBHOOK_URL = ""; 
-    
-    // 拦截 1：防止本地脱机运行。只要对方下载成了HTML文件在自己电脑上双击打开，就会直接白屏并报错
-    if (window.location.protocol === 'file:') {
-        document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">禁止脱机运行，请通过作者的专属链接访问本系统！</div>';
-        throw new Error("阻止本地脱机运行");
-    }
-    
-    // 拦截 2：防止域名盗用。
-    if (ALLOWED_DOMAIN !== "" && !window.location.hostname.includes(ALLOWED_DOMAIN) && !window.location.hostname.includes("localhost")) {
-        document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">未授权的运行环境！该代码已被锁定。</div>';
-        throw new Error("阻止未授权域名");
-    }
     
     let sessionStartTime = Date.now();
     let isAuthorized = false;
+    let currentUserName = "未知用户"; // 记录当前登录的是谁
     
-    // 拦截 3：密码鉴权
-    let userInput = prompt("系统已加密，请输入授权码：");
-    if (userInput !== AUTH_CODE) {
-        document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">授权码错误，系统拒绝访问！</div>';
-        throw new Error("授权码错误");
+    // 拦截 1：本地脱机运行检测
+    if (window.location.protocol === 'file:') {
+        // 本地运行时，必须输入作者的超级密码。
+        let localInput = prompt("【安全锁定】检测到脱机运行环境。\n如果您是系统作者本人，请输入超级解锁码：");
+        if (localInput !== LOCAL_AUTHOR_CODE) {
+            document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">禁止脱机运行，请通过专属线上链接访问本系统！</div>';
+            throw new Error("阻止本地脱机运行");
+        }
+        isAuthorized = true; 
+        currentUserName = "作者本人(本地测试)";
     } else {
-        isAuthorized = true;
-        sendMonitorData("合作者成功输入密码并登录系统");
+        // 拦截 2：防止线上域名盗用
+        if (ALLOWED_DOMAIN !== "" && !window.location.hostname.includes(ALLOWED_DOMAIN) && !window.location.hostname.includes("localhost")) {
+            document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">未授权的运行环境！该代码已被锁定。</div>';
+            throw new Error("阻止未授权域名");
+        }
+        
+        // 拦截 3：线上合作者密码鉴权（对比 USER_ACCOUNTS 里的密码）
+        let userInput = prompt("系统已加密，请输入线上授权码：");
+        if (USER_ACCOUNTS.hasOwnProperty(userInput)) {
+            isAuthorized = true;
+            currentUserName = USER_ACCOUNTS[userInput]; // 匹配到密码，记录对应的名字
+            sendMonitorData("成功输入密码并登录线上系统");
+        } else {
+            document.body.innerHTML = '<div style="text-align:center; margin-top:20vh; font-size:24px; color:red; font-weight:bold;">授权码错误或已失效，系统拒绝访问！</div>';
+            throw new Error("授权码错误");
+        }
     }
 
-    // 发送监控数据函数
+    // 发送监控数据函数（加上了使用者名字）
     function sendMonitorData(action, drawCount = 0) {
         if (!WEBHOOK_URL) return;
         let usedMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
         let payload = {
             msgtype: "text",
             text: {
-                content: `【抽奖系统实时监控】\n动作: ${action}\n当前已登录时长: ${usedMinutes} 分钟\n触发刷新数/消耗: ${drawCount}\n记录时间: ${new Date().toLocaleString()}`
+                content: `【抽奖系统实时监控】\n使用者: ${currentUserName}\n动作: ${action}\n当前已登录时长: ${usedMinutes} 分钟\n触发刷新数/消耗: ${drawCount}\n记录时间: ${new Date().toLocaleString()}`
             }
         };
         // 兼容绝大多数群机器人的推送格式
@@ -660,9 +675,9 @@ focus:border-primary" rows="2"></textarea></div>
         }).catch(err => console.log("监控日志状态更新", err));
     }
     
-    // 监控：离开页面与持续在线心跳
-    window.addEventListener('beforeunload', () => { if (isAuthorized) sendMonitorData("合作者关闭/退出了页面", 0); });
-    setInterval(() => { if (isAuthorized) sendMonitorData("合作者在线心跳（正在系统中停留）", 0); }, 15 * 60 * 1000);
+    // 监控：离开页面与持续在线心跳 (仅在线上模式才发送监控通知)
+    window.addEventListener('beforeunload', () => { if (isAuthorized && window.location.protocol !== 'file:') sendMonitorData("关闭/退出了页面", 0); });
+    setInterval(() => { if (isAuthorized && window.location.protocol !== 'file:') sendMonitorData("在线心跳（正在系统中停留）", 0); }, 15 * 60 * 1000);
 
     // ==================== 全局变量 ====================
     let lists = [], currentListIndex = 0, currentSubListIndex = -1, history = [], isDrawing = false, drawInterval = null, autoStopTimer = null;
