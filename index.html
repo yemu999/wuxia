@@ -1996,6 +1996,10 @@ class="fa fa-pencil"></i></button>
                     
                     const inp = td.querySelector('input');
                     let lastVal = inp.value;
+                    inp.addEventListener('input', function() {
+                        tableContentCache[`${i}_${j}`] = this.value;
+                        saveData();
+                    });
                     inp.addEventListener('blur', function() {
                         saveData(); 
                         let currentVal = this.value.trim();
@@ -2539,7 +2543,7 @@ return str;
             displayDiv.style.background = m.bgColor; if(!m.useRainbowColor) displayDiv.style.color = m.textColor;
             displayDiv.style.height = m.height + 'px';
             if (m.position === 'top' || m.position === 'bottom') { displayDiv.classList.add('fixed-marquee-display'); displayDiv.style.position = 'fixed';
-                displayDiv.style.left = '0'; displayDiv.style.width = '100%'; displayDiv.style.zIndex = '100005'; displayDiv.style.margin = '0'; displayDiv.style.borderRadius = '0';
+                displayDiv.style.left = '0'; displayDiv.style.width = '100%'; displayDiv.style.zIndex = '9999999'; displayDiv.style.margin = '0'; displayDiv.style.borderRadius = '0';
                 if (m.position === 'top') displayDiv.style.top = '0'; if (m.position === 'bottom') displayDiv.style.bottom = '0'; document.body.appendChild(displayDiv);
             } else { displayDiv.style.marginTop = '10px'; controlDiv.appendChild(displayDiv); }
 
@@ -2832,6 +2836,7 @@ resetTimer();
     function initEvents() {
         startPauseTimerBtn?.addEventListener('click', toggleTimer);
         resetTimerBtn?.addEventListener('click', resetTimer);
+        timerDurationEl?.addEventListener('input', () => { timerDuration = parseInt(timerDurationEl.value) || 60; resetTimer(); saveData(); });
         timerDurationEl?.addEventListener('change', () => { timerDuration = parseInt(timerDurationEl.value) || 60; resetTimer(); saveData(); });
         autoResetTimerEl?.addEventListener('change', () => { autoResetTimer = autoResetTimerEl.checked; saveData(); });
 
@@ -2849,9 +2854,9 @@ resetTimer();
         function updateMinimizedContent() { const mc = document.getElementById('minimizedContent'); if (!mc) return;
             if (currentDrawResult.length) { mc.innerHTML = currentDrawResult.map(p => `<div style="padding:4px 0;border-bottom:1px solid #eee;">🏆 ${escapeHtml(p.name)}${p.intro ? ' - ' + escapeHtml(p.intro) : ''}</div>`).join('');
             } else { mc.innerHTML = '<p class="text-gray-400">等待抽奖...</p>'; } } window.updateMinimizedContent = updateMinimizedContent;
-        exportBtn.addEventListener('click', () => { saveData(); const exp = { lists, currentListIndex, history, drawCountTotal, marquees, globalPlayers, tablePlayerBindsCache, bonds, autoStopSeconds: parseInt(autoStopTimeEl.value), minRefreshLimit: parseInt(document.getElementById('minRefreshLimit').value) || 0, drawCountValue: parseInt(drawCountModal.value) || 1, tableData: JSON.parse(localStorage.getItem('drawSystemData')).tableData }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(exp, null, 2)], { type: 'application/json' })); a.download = `完整数据_${Date.now()}.json`; a.click(); });
+        exportBtn.addEventListener('click', () => { saveData(); const exp = { lists, currentListIndex, history, drawCountTotal, marquees, globalPlayers, tablePlayerBindsCache, bonds, autoStopSeconds: parseInt(autoStopTimeEl.value), minRefreshLimit: parseInt(document.getElementById('minRefreshLimit').value) || 0, timerDuration: parseInt(timerDurationEl.value) || 60, autoResetTimer: autoResetTimerEl.checked, drawCountValue: parseInt(drawCountModal.value) || 1, tableData: JSON.parse(localStorage.getItem('drawSystemData')).tableData }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(exp, null, 2)], { type: 'application/json' })); a.download = `完整数据_${Date.now()}.json`; a.click(); });
     importBtn.addEventListener('click', () => importFileInput.click());
-        importFileInput.addEventListener('change', e => { let file = e.target.files[0]; if (file) { let reader = new FileReader(); reader.onload = ev => { try { let data = JSON.parse(ev.target.result); if (data.lists) { lists = data.lists; currentListIndex = data.currentListIndex || 0; history = data.history || []; drawCountTotal = data.drawCountTotal || 0; marquees = data.marquees || []; globalPlayers = data.globalPlayers || []; bonds = data.bonds || []; tablePlayerBindsCache = data.tablePlayerBindsCache || {}; if (data.autoStopSeconds) autoStopTimeEl.value = data.autoStopSeconds; if (data.tableData) localStorage.setItem('drawSystemData', JSON.stringify(data)); loadData(); } } catch (e) { alert('导入失败'); } }; reader.readAsText(file); } });
+        importFileInput.addEventListener('change', e => { let file = e.target.files[0]; if (file) { let reader = new FileReader(); reader.onload = ev => { try { let data = JSON.parse(ev.target.result); if (data.lists) { lists = data.lists; currentListIndex = data.currentListIndex || 0; history = data.history || []; drawCountTotal = data.drawCountTotal || 0; marquees = data.marquees || []; globalPlayers = data.globalPlayers || []; bonds = data.bonds || []; tablePlayerBindsCache = data.tablePlayerBindsCache || {}; if (data.autoStopSeconds) autoStopTimeEl.value = data.autoStopSeconds; if (data.timerDuration !== undefined) timerDurationEl.value = data.timerDuration; if (data.autoResetTimer !== undefined) autoResetTimerEl.checked = data.autoResetTimer; if (data.tableData) localStorage.setItem('drawSystemData', JSON.stringify(data)); loadData(); } } catch (e) { alert('导入失败'); } }; reader.readAsText(file); } });
         allowDuplicatesEl.addEventListener('change', () => { allowDuplicates = allowDuplicatesEl.checked; saveData(); }); 
         
         // 核心：新增扣除按键的逻辑绑定
@@ -3216,7 +3221,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
     // 3秒后自动销毁动画元素
     setTimeout(() => overlay.remove(), 3000);
 }
-     function init() { if (!lists.length) addNewList(); initEvents(); loadData(); }
+     function init() { loadData(); if (!lists.length) addNewList(); initEvents(); }
     document.addEventListener('DOMContentLoaded', init);
 
 
@@ -3259,13 +3264,13 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             panelHTML += '<option value="deepseek-v4-flash">V4-FLASH</option>';
             panelHTML += '</select></div>';
             panelHTML += '</div>';
-            panelHTML += '<div><label class="block text-sm font-bold text-gray-700 mb-1">导入本地规则文件 (.xlsx) <span class="text-xs text-gray-400 font-normal ml-2">自动读取表格内第一列的所有文本作为世界规则</span></label>';
+            panelHTML += '<div><label class="block text-sm font-bold text-gray-700 mb-1">本地规则文件管理 (.xlsx) <span class="text-xs text-gray-400 font-normal ml-2">自动读取表格内第一列的所有文本作为世界规则</span></label>';
             panelHTML += '<div class="flex gap-2 items-center"><input type="file" id="ruleFileInput" accept=".xlsx,.xls" class="hidden">';
-            panelHTML += '<button id="importRuleBtn" class="bg-secondary text-white py-2 px-4 rounded-md hover:bg-blue-700 transition shadow"><i class="fa fa-upload mr-1"></i>选择规则文件</button>';
+            panelHTML += '<button id="importRuleBtn" class="bg-secondary text-white py-2 px-4 rounded-md hover:bg-blue-700 transition shadow"><i class="fa fa-upload mr-1"></i>上传规则文件</button>';
+            panelHTML += '<button id="downloadRuleBtn" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition shadow"><i class="fa fa-download mr-1"></i>下载规则文件</button>';
             panelHTML += '<span id="ruleFileStatus" class="text-sm text-gray-500">未选择文件</span></div></div>';
-            panelHTML += '<div class="flex-1 flex flex-col"><label class="block text-sm font-bold text-gray-700 mb-1">当前推演规则内容 (可直接在输入框内手动微调)</label>';
-            panelHTML += '<textarea id="aiRuleText" class="w-full flex-1 border border-gray-300 rounded-md p-2 outline-none focus:border-primary text-sm min-h-[200px]" placeholder="请导入包含规则的 Excel，或直接在此处输入规则内容..."></textarea></div>';
-            panelHTML += '<div class="pt-2 border-t"><button id="saveAiConfigBtn" class="bg-primary text-white py-2 px-6 rounded-md hover:bg-red-700 transition shadow font-bold"><i class="fa fa-save mr-1"></i>保存 AI 配置</button></div></div>';
+            panelHTML += '<textarea id="aiRuleText" class="hidden"></textarea>';
+            panelHTML += '<div class="pt-2 border-t mt-auto"><button id="saveAiConfigBtn" class="bg-primary text-white py-2 px-6 rounded-md hover:bg-red-700 transition shadow font-bold"><i class="fa fa-save mr-1"></i>保存 AI 配置</button></div></div>';
             
             aiPanel.innerHTML = panelHTML;
             mainContainer.appendChild(aiPanel);
@@ -3360,6 +3365,22 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                 ruleFileInput.value = ''; 
             });
 
+            document.getElementById('downloadRuleBtn').addEventListener('click', function() {
+                let pwd = prompt("请输入超级管理员密码以下载规则文件：");
+                if (pwd !== LOCAL_AUTHOR_CODE) {
+                    alert("密码错误，拒绝下载！");
+                    return;
+                }
+                if (typeof XLSX === 'undefined') { alert('缺少 XLSX 运行库，加载中请稍候重试'); return; }
+                let rulesText = document.getElementById('aiRuleText').value || '';
+                let rows = rulesText.split('\n').map(function(r) { return [r]; });
+                let wb = XLSX.utils.book_new();
+                let ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = [{wch: 100}];
+                XLSX.utils.book_append_sheet(wb, ws, "规则");
+                XLSX.writeFile(wb, "当前推演规则_" + Date.now() + ".xlsx");
+            });
+
             // ======================= 核心：互动沙盘弹窗 UI 构建 =======================
             const simModal = document.createElement('div');
             simModal.id = 'aiSimInteractiveModal';
@@ -3367,20 +3388,36 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             
             let simInner = '<div id="aiSimModalContent" class="bg-white rounded-xl shadow-2xl flex flex-col absolute" style="width: 800px; height: 600px; min-width: 400px; min-height: 400px; max-width: 95vw; max-height: 95vh; resize: both; overflow: hidden;">';
             
-            // 头部可拖拽区
-            simInner += '<div id="aiSimModalHeader" class="p-3 border-b flex justify-between items-center bg-gray-100 cursor-move rounded-t-xl select-none">';
-            simInner += '<h3 class="font-bold text-dark flex items-center"><i class="fa fa-magic text-purple-600 mr-2"></i>AI 秘境推演沙盘 (右下角可拉动大小)</h3>';
-            simInner += '<button id="closeAiSimModalBtn" class="text-gray-500 hover:text-red-600"><i class="fa fa-times text-xl"></i></button></div>';
+            // 头部可拖拽区 (DeepSeek 风格头部)
+            simInner += '<div id="aiSimModalHeader" class="p-3 flex justify-between items-center bg-white cursor-move rounded-t-xl select-none border-b border-gray-100">';
+            simInner += '<div class="flex items-center gap-4 text-gray-600">';
+            simInner += '<h3 class="font-bold text-dark text-base flex items-center"><i class="fa fa-magic text-blue-600 mr-2"></i>AI 秘境推演沙盘</h3>';
+            simInner += '</div>';
+            simInner += '<div class="flex items-center gap-4 text-gray-600">';
+            simInner += '<button id="aiHistoryBtn" class="hover:text-primary font-medium flex items-center text-sm transition" title="查看历史记录"><i class="fa fa-history mr-1"></i>历史记录</button>';
+            simInner += '<button id="aiRestartBtn" class="hover:text-black font-medium flex items-center text-sm transition" title="重新推演"><i class="fa fa-plus-square-o mr-1"></i>新对话</button>';
+            simInner += '<button id="closeAiSimModalBtn" class="text-gray-400 hover:text-red-500 ml-2 transition"><i class="fa fa-times text-lg"></i></button>';
+            simInner += '</div></div>';
             
-            // 工具栏区
-            simInner += '<div class="flex flex-wrap gap-4 p-2 bg-gray-50 border-b text-sm items-center">';
-            simInner += '<button id="aiPlayPauseBtn" class="bg-blue-500 text-white px-3 py-1 rounded shadow hover:bg-blue-600 flex items-center w-[80px] justify-center"><i class="fa fa-pause mr-1"></i> 暂停</button>';
-            simInner += '<button id="aiStopBtn" class="bg-red-500 text-white px-3 py-1 rounded shadow hover:bg-red-600 flex items-center w-[80px] justify-center"><i class="fa fa-stop mr-1"></i> 停止</button>';
-            simInner += '<button id="aiRestartBtn" class="bg-orange-500 text-white px-3 py-1 rounded shadow hover:bg-orange-600 flex items-center"><i class="fa fa-refresh mr-1"></i> 重新推演</button>';
-            simInner += '<div class="flex items-center gap-1 text-gray-600">速度(字/分): <button id="aiSpeedDec" class="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button><input type="number" id="aiSpeedInput" min="10" max="3000" value="600" class="w-16 border p-1 rounded text-center outline-none"><button id="aiSpeedInc" class="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button></div>';
-            simInner += '<label class="flex items-center gap-1 text-gray-600">字号: <input type="number" id="aiFontSizeInput" min="12" max="48" value="16" class="w-12 border p-1 rounded text-center outline-none"></label>';
-            simInner += '<label class="flex items-center gap-1 text-gray-600">颜色: <input type="color" id="aiFontColorInput" value="#374151" class="w-8 h-8 p-0 border rounded cursor-pointer"></label>';
-            simInner += '<button id="aiCopyReportBtn" class="ml-auto bg-green-600 text-white px-3 py-1 rounded shadow hover:bg-green-700 flex items-center"><i class="fa fa-copy mr-1"></i> 一键复制</button></div>';
+            // 读取本地保存的速度和字号配置
+            let savedAiSpeed = 600;
+            let savedAiFontSize = 16;
+            try {
+                let savedDsConfig = JSON.parse(localStorage.getItem('dsAiConfig') || '{}');
+                if (savedDsConfig.speed) savedAiSpeed = savedDsConfig.speed;
+                if (savedDsConfig.fontSize) savedAiFontSize = savedDsConfig.fontSize;
+            } catch (e) {}
+
+            // 工具栏区 (保留系统功能，紧贴头部下方)
+            simInner += '<div class="flex flex-wrap gap-4 px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs items-center shadow-sm z-10">';
+            simInner += '<button id="aiPlayPauseBtn" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 flex items-center w-[70px] justify-center transition"><i class="fa fa-pause mr-1"></i> 暂停</button>';
+            simInner += '<button id="aiStopBtn" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 flex items-center w-[70px] justify-center transition"><i class="fa fa-stop mr-1"></i> 停止</button>';
+            simInner += '<div class="flex items-center gap-1 text-gray-500 bg-white border px-2 py-0.5 rounded">打字速度: <button id="aiSpeedDec" class="px-1 hover:text-black">-</button><input type="number" id="aiSpeedInput" min="10" max="3000" value="' + savedAiSpeed + '" class="w-12 text-center outline-none bg-transparent"><button id="aiSpeedInc" class="px-1 hover:text-black">+</button></div>';
+            simInner += '<label class="flex items-center gap-1 text-gray-500 bg-white border px-2 py-0.5 rounded cursor-pointer" title="开启后画面自动匀速下滑"><input type="checkbox" id="aiAutoScrollToggle" class="w-3 h-3 text-blue-600"> 自动下滑</label>';
+            simInner += '<div class="flex items-center gap-1 text-gray-500 bg-white border px-2 py-0.5 rounded" title="调整自动下滑的速度">下滑速度: <input type="range" id="aiAutoScrollSpeed" min="1" max="20" value="5" class="w-16 cursor-pointer"></div>';
+            simInner += '<label class="flex items-center gap-1 text-gray-500 bg-white border px-2 py-0.5 rounded">字号: <input type="number" id="aiFontSizeInput" min="12" max="48" value="' + savedAiFontSize + '" class="w-10 text-center outline-none bg-transparent"></label>';
+            simInner += '<label class="flex items-center gap-1 text-gray-500 bg-white border px-2 py-0.5 rounded">颜色: <input type="color" id="aiFontColorInput" value="#374151" class="w-5 h-5 p-0 border-none bg-transparent cursor-pointer"></label>';
+            simInner += '<button id="aiCopyReportBtn" class="ml-auto text-gray-500 hover:text-green-600 flex items-center transition"><i class="fa fa-copy mr-1"></i> 复制战报</button></div>';
 
             // 文本输出区 与 浮动地图区
             simInner += '<div class="flex-1 flex overflow-hidden relative" style="background: #fffdf8;">';
@@ -3410,7 +3447,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             simInner += '</div></div>'; // End map content & container
             
             // 输出容器 (放在地图浮动元素之后)
-            simInner += '<div id="aiSimOutputContent" class="whitespace-pre-wrap leading-relaxed transition-all" style="font-size: 16px; color: #374151;"></div>';
+            simInner += '<div id="aiSimOutputContent" class="whitespace-pre-wrap leading-relaxed transition-all" style="font-size: ' + savedAiFontSize + 'px; color: #374151;"></div>';
             simInner += '</div>'; // End scroll area
             simInner += '</div>'; // End flex wrapper
 
@@ -3421,10 +3458,23 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             simInner += '<div id="aiLoadingIndicator" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white px-6 py-4 rounded-xl flex items-center gap-3 shadow-2xl z-20">';
             simInner += '<i class="fa fa-spinner fa-spin text-3xl text-purple-400"></i> <span class="font-bold tracking-widest text-lg">天道推演思考中...</span></div>';
 
-            // 底部人工输入区
-            simInner += '<div class="p-3 border-t bg-gray-100 flex gap-2 items-end rounded-b-xl">';
-            simInner += '<textarea id="aiInterveneInput" rows="2" class="flex-1 border border-gray-300 rounded p-2 outline-none focus:border-purple-500 text-sm resize-y" placeholder="在这里输入你的干预指令：例如“开始全场混战，描写招式与羁绊特效”，然后点击发送即可执行推演..."></textarea>';
-            simInner += '<button id="aiInterveneSendBtn" class="bg-purple-600 text-white px-5 py-2 rounded shadow hover:bg-purple-700 font-bold h-full flex flex-col items-center justify-center min-w-[100px]"><i class="fa fa-paper-plane mb-1"></i>发送指令</button></div>';
+            // 底部人工输入区 (DeepSeek 风格底部)
+            simInner += '<div class="p-4 bg-white flex flex-row rounded-b-xl border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] gap-4 items-stretch">';
+            simInner += '<div class="w-1/3 flex flex-col gap-2 overflow-y-auto max-h-24 pr-1" id="aiQuickCommandsContainer">';
+            simInner += '<div class="flex justify-between items-center"><span class="text-xs text-gray-500 font-bold whitespace-nowrap"><i class="fa fa-bolt text-yellow-500"></i> 快捷指令:</span>';
+            simInner += '<button id="aiAddQuickCommandBtn" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded shadow-sm whitespace-nowrap" title="添加新快捷指令"><i class="fa fa-plus"></i></button></div>';
+            simInner += '<div id="aiQuickCommandsList" class="flex flex-wrap gap-2"></div>';
+            simInner += '</div>';
+            simInner += '<div class="flex-1 flex gap-3 items-end bg-gray-50 border border-gray-200 rounded-xl p-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">';
+            simInner += '<textarea id="aiInterveneInput" rows="2" class="flex-1 bg-transparent border-none p-2 outline-none text-sm resize-y text-gray-800 placeholder-gray-400 h-full" placeholder="给DeepSeek发送指令，例如“开始全场混战，描写招式与羁绊特效”..."></textarea>';
+            simInner += '<button id="aiInterveneSendBtn" class="bg-blue-600 text-white w-10 h-10 rounded-lg shadow hover:bg-blue-700 font-bold flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 mb-1"><i class="fa fa-arrow-up"></i></button>';
+            simInner += '</div></div>';
+            
+            // 历史记录弹窗悬浮层
+            simInner += '<div id="aiHistoryModal" class="absolute inset-0 bg-white/95 z-[100070] hidden flex-col backdrop-blur-sm rounded-xl">';
+            simInner += '<div class="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center rounded-t-xl"><h3 class="font-bold text-gray-800"><i class="fa fa-history text-primary mr-1"></i>历史推演记录</h3><button id="closeAiHistoryModalBtn" class="text-gray-500 hover:text-red-500 transition"><i class="fa fa-times text-lg"></i></button></div>';
+            simInner += '<div id="aiHistoryListContainer" class="flex-1 overflow-y-auto p-4 space-y-3"></div>';
+            simInner += '</div>';
             
             simInner += '</div>';
             simModal.innerHTML = simInner;
@@ -3440,12 +3490,84 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             let aiAbortController = null; // 用于中断API请求
             // 新增地图扫描缓存区
             window.mapScanBuffer = "";
+            
+            let aiSavedHistories = JSON.parse(localStorage.getItem('aiSimHistories') || '[]');
+            let aiQuickCommands = JSON.parse(localStorage.getItem('aiQuickCommands') || '["开始全场混战，详细描写招式与羁绊特效","跳过战斗过程，直接宣判最终胜者","局势突变，随机触发一个神秘事件","所有角色施展最强绝学一击定胜负"]');
+            
+            // 尝试恢复上一次的会话以保持状态不丢失
+            try {
+                let currentSession = JSON.parse(localStorage.getItem('aiCurrentSession'));
+                if (currentSession && currentSession.chatHistory && currentSession.chatHistory.length > 0) {
+                    chatHistory = currentSession.chatHistory;
+                    fullTextHistory = currentSession.fullTextHistory || "";
+                    initialVisualHistory = currentSession.initialVisualHistory || "";
+                }
+            } catch(e) {}
+            
+            function saveCurrentAiSession() {
+                localStorage.setItem('aiCurrentSession', JSON.stringify({
+                    chatHistory: chatHistory,
+                    fullTextHistory: fullTextHistory,
+                    initialVisualHistory: initialVisualHistory
+                }));
+            }
 
             const simOutputBox = document.getElementById('aiSimOutputContent');
             const loadingIndicator = document.getElementById('aiLoadingIndicator');
             const playPauseBtn = document.getElementById('aiPlayPauseBtn');
             const aiSpeedInput = document.getElementById('aiSpeedInput');
             const interveneInput = document.getElementById('aiInterveneInput');
+            const aiQuickCommandsList = document.getElementById('aiQuickCommandsList');
+            const aiAddQuickCommandBtn = document.getElementById('aiAddQuickCommandBtn');
+            
+            function renderQuickCommands() {
+                aiQuickCommandsList.innerHTML = '';
+                aiQuickCommands.forEach((cmd, idx) => {
+                    let btn = document.createElement('div');
+                    btn.className = 'group relative flex items-center';
+                    btn.innerHTML = `<button class="text-xs bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded shadow-sm hover:bg-blue-50 whitespace-nowrap transition" title="${escapeHtml(cmd)}">${escapeHtml(cmd.length > 8 ? cmd.substring(0, 8) + '...' : cmd)}</button>
+                    <span class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-pointer opacity-0 group-hover:opacity-100 transition z-10 delete-cmd-btn" data-idx="${idx}"><i class="fa fa-times"></i></span>`;
+                    btn.querySelector('button').addEventListener('click', () => {
+                        interveneInput.value = cmd;
+                        interveneInput.focus();
+                    });
+                    btn.querySelector('.delete-cmd-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if(confirm("删除此快捷指令？")) {
+                            aiQuickCommands.splice(idx, 1);
+                            localStorage.setItem('aiQuickCommands', JSON.stringify(aiQuickCommands));
+                            renderQuickCommands();
+                        }
+                    });
+                    aiQuickCommandsList.appendChild(btn);
+                });
+            }
+            renderQuickCommands();
+            
+            aiAddQuickCommandBtn.addEventListener('click', () => {
+                let newCmd = prompt("请输入新的快捷指令内容：");
+                if (newCmd && newCmd.trim()) {
+                    aiQuickCommands.push(newCmd.trim());
+                    localStorage.setItem('aiQuickCommands', JSON.stringify(aiQuickCommands));
+                    renderQuickCommands();
+                }
+            });
+
+            // 核心修复：接管详情面板的展开/收起事件，防止和 innerHTML 的高频刷新产生冲突
+            const handleSummaryToggle = function(e) {
+                let summary = e.target.closest('summary');
+                if (summary) {
+                    e.preventDefault(); 
+                    let details = summary.parentNode;
+                    if (details.hasAttribute('open')) {
+                        details.removeAttribute('open');
+                    } else {
+                        details.setAttribute('open', '');
+                    }
+                }
+            };
+            simOutputBox.addEventListener('mousedown', handleSummaryToggle);
+            simOutputBox.addEventListener('touchstart', handleSummaryToggle, {passive: false});
 
             window.renderAiHistory = function() {
                 fullTextHistory = initialVisualHistory;
@@ -3458,7 +3580,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                     } else if (msg.role === 'assistant') {
                         if (msg.reasoning) {
                             fullTextHistory += '<details style="background-color:#f8fafc; border-left:4px solid #cbd5e1; padding:12px; margin-bottom:15px; color:#64748b; font-size:0.9em; border-radius:0 4px 4px 0; cursor: pointer;">';
-                            fullTextHistory += '<summary style="font-weight:bold; color:#475569; outline: none;"><i class="fa fa-check-circle text-green-600"></i> 思考完成 (点击展开/收起)</summary>';
+                            fullTextHistory += '<summary onclick="event.preventDefault();" style="font-weight:bold; color:#475569; outline: none;"><i class="fa fa-check-circle text-green-600"></i> 思考完成 (点击展开/收起)</summary>';
                             fullTextHistory += '<div style="margin-top: 8px; white-space: pre-wrap;">' + escapeHtml(msg.reasoning) + '</div></details>\n\n';
                         }
                         fullTextHistory += escapeHtml(msg.content).replace(/\*\*(.*?)\*\*/g, '<strong class="text-red-600">$1</strong>') + '<br><br>';
@@ -3503,8 +3625,20 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                     
                     let currentStr = fullTextHistory.substring(0, typedIndex);
                     
+                    // 核心修复：记录所有 details 的展开状态，防止打字机渲染刷新导致点击失效
+                    let openStates = Array.from(simOutputBox.querySelectorAll('details')).map(d => d.hasAttribute('open'));
+
                     simOutputBox.innerHTML = currentStr.replace(/\*\*(.*?)\*\*/g, '<strong class="text-red-600">$1</strong>');
                     
+                    // 核心修复：还原 details 展开状态
+                    let newDetails = simOutputBox.querySelectorAll('details');
+                    newDetails.forEach((d, i) => {
+                        if (i < openStates.length) {
+                            if (openStates[i]) d.setAttribute('open', '');
+                            else d.removeAttribute('open');
+                        }
+                    });
+
                     let scrollArea = document.getElementById('aiSimScrollArea');
                     if (scrollArea) {
                         let isAtBottom = (scrollArea.scrollHeight - scrollArea.scrollTop) <= (scrollArea.clientHeight + 80);
@@ -3598,13 +3732,34 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                                         
                                         if (delta.reasoning_content) {
                                             if (!window._isReasoningBlock) {
-                                                fullTextHistory += '<details style="background-color:#f8fafc; border-left:4px solid #cbd5e1; padding:12px; margin-bottom:15px; color:#64748b; font-size:0.9em; border-radius:0 4px 4px 0; cursor: pointer;" open><summary style="font-weight:bold; color:#475569; outline: none;"><i class="fa fa-cogs"></i> 正在深度思考... (点击收起)</summary><div style="margin-top: 8px; white-space: pre-wrap;">';
+                                                fullTextHistory += '<details style="background-color:#f8fafc; border-left:4px solid #cbd5e1; padding:12px; margin-bottom:15px; color:#64748b; font-size:0.9em; border-radius:0 4px 4px 0; cursor: pointer;" open><summary onclick="event.preventDefault();" style="font-weight:bold; color:#475569; outline: none;"><i class="fa fa-cogs"></i> 正在深度思考... (点击收起)</summary><div style="margin-top: 8px; white-space: pre-wrap;">';
                                                 window._isReasoningBlock = true;
                                             }
+                                            
+                                            // 记录当前最后一个 details 的展开状态，防止 DOM 更新时覆盖用户的点击操作
+                                            let lastDetails = simOutputBox.querySelector('details:last-of-type');
+                                            let wasOpen = lastDetails ? lastDetails.hasAttribute('open') : true;
+
                                             let cleanText = escapeHtml(delta.reasoning_content);
                                             fullTextHistory += cleanText;
                                             currentReasoning += delta.reasoning_content;
-                                            if (!typeTimer && !isPaused) typeLoop();
+                                            
+                                            // 核心修复：思考阶段跳过打字机效果，直接满速渲染，彻底解决打字堆积导致的后续正文延迟问题
+                                            typedIndex = fullTextHistory.length; 
+                                            simOutputBox.innerHTML = fullTextHistory.replace(/\*\*(.*?)\*\*/g, '<strong class="text-red-600">$1</strong>');
+                                            
+                                            // 还原展开状态
+                                            let newLastDetails = simOutputBox.querySelector('details:last-of-type');
+                                            if (newLastDetails) {
+                                                if (wasOpen) newLastDetails.setAttribute('open', '');
+                                                else newLastDetails.removeAttribute('open');
+                                            }
+
+                                            let scrollArea = document.getElementById('aiSimScrollArea');
+                                            if (scrollArea) {
+                                                let isAtBottom = (scrollArea.scrollHeight - scrollArea.scrollTop) <= (scrollArea.clientHeight + 80);
+                                                if (isAtBottom) scrollArea.scrollTop = scrollArea.scrollHeight;
+                                            }
                                         }
                                         if (delta.content) {
                                             if (window._isReasoningBlock) {
@@ -3612,6 +3767,10 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                                                 fullTextHistory = fullTextHistory.replace('正在深度思考... (点击收起)', '<i class="fa fa-check-circle text-green-600"></i> 思考完成 (点击展开)');
                                                 fullTextHistory = fullTextHistory.replace('open><summary', '><summary'); // 收起面板
                                                 window._isReasoningBlock = false;
+                                                
+                                                // 思考完成时，立刻强制更新一次 DOM 并让其处于收起状态
+                                                simOutputBox.innerHTML = fullTextHistory.replace(/\*\*(.*?)\*\*/g, '<strong class="text-red-600">$1</strong>');
+                                                typedIndex = fullTextHistory.length; // 确保打字机从最新的正文位置开始起步
                                             }
                                             let cleanText = escapeHtml(delta.content);
                                             fullTextHistory += cleanText;
@@ -3625,6 +3784,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                         
                         chatHistory.push({ role: 'assistant', content: currentText, reasoning: currentReasoning });
                         fullTextHistory += '<br><br>';
+                        saveCurrentAiSession();
                         if (!typeTimer && !isPaused) typeLoop();
                     }
                 } catch (err) {
@@ -3632,6 +3792,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                         if (window._isReasoningBlock) fullTextHistory += '</div></details>\n\n';
                         fullTextHistory += '<br><br>【天道已中止推演】<br><br>';
                         chatHistory.push({ role: 'assistant', content: currentText + '\n\n【天道已中止推演】', reasoning: currentReasoning });
+                        saveCurrentAiSession();
                         if (!typeTimer && !isPaused) typeLoop();
                     } else {
                         // 额外捕获网络断开或跨域失败的情况
@@ -3658,8 +3819,18 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                 }
             });
 
+            function saveAiVisualConfig() {
+                try {
+                    let config = JSON.parse(localStorage.getItem('dsAiConfig') || '{}');
+                    config.speed = parseInt(aiSpeedInput.value) || 600;
+                    config.fontSize = parseInt(document.getElementById('aiFontSizeInput').value) || 16;
+                    localStorage.setItem('dsAiConfig', JSON.stringify(config));
+                } catch(e) {}
+            }
+
             document.getElementById('aiFontSizeInput').addEventListener('input', function(e) {
                 simOutputBox.style.fontSize = e.target.value + 'px';
+                saveAiVisualConfig();
             });
 
             const updateAiColor = function(e) {
@@ -3669,13 +3840,38 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             document.getElementById('aiFontColorInput').addEventListener('input', updateAiColor);
             document.getElementById('aiFontColorInput').addEventListener('change', updateAiColor);
 
+            document.getElementById('aiSpeedInput').addEventListener('input', saveAiVisualConfig);
+
             document.getElementById('aiSpeedDec').addEventListener('click', function() {
                 let v = parseInt(aiSpeedInput.value) || 600;
                 if (v > 50) aiSpeedInput.value = v - 50;
+                saveAiVisualConfig();
             });
             document.getElementById('aiSpeedInc').addEventListener('click', function() {
                 let v = parseInt(aiSpeedInput.value) || 600;
                 aiSpeedInput.value = v + 50;
+                saveAiVisualConfig();
+            });
+
+            let aiAutoScrollTimer = null;
+            const aiAutoScrollToggle = document.getElementById('aiAutoScrollToggle');
+            const aiAutoScrollSpeed = document.getElementById('aiAutoScrollSpeed');
+            const aiSimScrollAreaObj = document.getElementById('aiSimScrollArea');
+
+            aiAutoScrollToggle.addEventListener('change', function() {
+                if (this.checked) {
+                    aiAutoScrollTimer = setInterval(() => {
+                        if (aiSimScrollAreaObj) {
+                            let spd = parseInt(aiAutoScrollSpeed.value) || 5;
+                            aiSimScrollAreaObj.scrollTop += spd;
+                        }
+                    }, 30);
+                } else {
+                    if (aiAutoScrollTimer) {
+                        clearInterval(aiAutoScrollTimer);
+                        aiAutoScrollTimer = null;
+                    }
+                }
             });
 
             document.getElementById('aiCopyReportBtn').addEventListener('click', function() {
@@ -3691,6 +3887,86 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                 });
             });
 
+            const aiHistoryModal = document.getElementById('aiHistoryModal');
+            const aiHistoryListContainer = document.getElementById('aiHistoryListContainer');
+            
+            function renderAiHistories() {
+                aiHistoryListContainer.innerHTML = '';
+                if (aiSavedHistories.length === 0) {
+                    aiHistoryListContainer.innerHTML = '<div class="text-center text-gray-500 mt-10">暂无历史记录</div>';
+                    return;
+                }
+                aiSavedHistories.forEach((item, index) => {
+                    let card = document.createElement('div');
+                    card.className = 'bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center hover:border-blue-300 transition';
+                    card.innerHTML = `
+                        <div class="cursor-pointer flex-1" onclick="loadAiHistory(${index})">
+                            <div class="font-bold text-blue-700">${escapeHtml(item.name)}</div>
+                            <div class="text-xs text-gray-500 mt-1"><i class="fa fa-clock-o"></i> ${item.time} &nbsp;|&nbsp; 轮次: ${item.chatHistory.length - 1}</div>
+                        </div>
+                        <button class="text-red-500 hover:text-red-700 px-3 py-1 bg-red-50 hover:bg-red-100 rounded transition delete-ai-history" data-idx="${index}"><i class="fa fa-trash"></i></button>
+                    `;
+                    aiHistoryListContainer.appendChild(card);
+                });
+                
+                document.querySelectorAll('.delete-ai-history').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (confirm("确认彻底删除此条历史记录？")) {
+                            aiSavedHistories.splice(this.dataset.idx, 1);
+                            localStorage.setItem('aiSimHistories', JSON.stringify(aiSavedHistories));
+                            renderAiHistories();
+                        }
+                    });
+                });
+            }
+            
+            window.loadAiHistory = function(index) {
+                if (confirm("加载历史记录将覆盖当前正在进行的推演界面，是否继续？")) {
+                    // 在覆盖之前，也顺便把当前非空的存一下（防止误触覆盖）
+                    if (chatHistory && chatHistory.length > 1) {
+                        aiSavedHistories.unshift({
+                            id: Date.now().toString(),
+                            name: "自动备份 - " + new Date().toLocaleString(),
+                            time: new Date().toLocaleString(),
+                            chatHistory: [...chatHistory],
+                            fullTextHistory: fullTextHistory,
+                            initialVisualHistory: initialVisualHistory
+                        });
+                        localStorage.setItem('aiSimHistories', JSON.stringify(aiSavedHistories));
+                    }
+                
+                    let record = aiSavedHistories[index];
+                    chatHistory = [...record.chatHistory];
+                    fullTextHistory = record.fullTextHistory;
+                    initialVisualHistory = record.initialVisualHistory;
+                    saveCurrentAiSession();
+                    
+                    window.renderAiHistory();
+                    aiHistoryModal.classList.add('hidden');
+                    aiHistoryModal.classList.remove('flex');
+                    
+                    // 重置地图
+                    window.dynamicEntities = {};
+                    window.poisonCircleSize = 0;
+                    document.getElementById('aiMapCanvas').innerHTML = '';
+                    if (document.getElementById('aiMapPoisonCircle')) {
+                        document.getElementById('aiMapPoisonCircle').style.boxShadow = 'inset 0 0 0 0px rgba(74, 222, 128, 0.4)';
+                    }
+                }
+            };
+
+            document.getElementById('aiHistoryBtn').addEventListener('click', function() {
+                renderAiHistories();
+                aiHistoryModal.classList.remove('hidden');
+                aiHistoryModal.classList.add('flex');
+            });
+            
+            document.getElementById('closeAiHistoryModalBtn').addEventListener('click', function() {
+                aiHistoryModal.classList.add('hidden');
+                aiHistoryModal.classList.remove('flex');
+            });
+
             document.getElementById('closeAiSimModalBtn').addEventListener('click', function() {
                 simModal.classList.add('hidden');
             });
@@ -3704,9 +3980,32 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
             });
 
             document.getElementById('aiRestartBtn').addEventListener('click', function() {
-                if (confirm("天道即将重演，过去的纪元将被抹除！确定要重新推演吗？")) {
+                if (confirm("天道即将重演，是否保存当前记录开启新推演？")) {
                     if (aiAbortController) aiAbortController.abort();
-                    window.chatHistory = [];
+                    
+                    // 记录历史
+                    if (chatHistory && chatHistory.length > 1) {
+                        let historyName = prompt("为本次推演记录命名（留空则默认按时间）：");
+                        if (historyName === null) return; // 点击取消则终止
+                        historyName = historyName.trim() || new Date().toLocaleString();
+                        
+                        aiSavedHistories.unshift({
+                            id: Date.now().toString(),
+                            name: historyName,
+                            time: new Date().toLocaleString(),
+                            chatHistory: [...chatHistory],
+                            fullTextHistory: fullTextHistory,
+                            initialVisualHistory: initialVisualHistory
+                        });
+                        localStorage.setItem('aiSimHistories', JSON.stringify(aiSavedHistories));
+                    }
+                    
+                    chatHistory = [];
+                    fullTextHistory = "";
+                    initialVisualHistory = "";
+                    saveCurrentAiSession();
+                    window.chatHistory = []; // 清理旧逻辑
+                    
                     // 清理动态地图库
                     window.dynamicEntities = {};
                     window.poisonCircleSize = 0;
@@ -3744,6 +4043,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                 
                 typedIndex = fullTextHistory.length;
                 chatHistory.push({ role: 'user', content: text });
+                saveCurrentAiSession();
                 
                 appendToQueue(text, true, chatHistory.length - 1); 
                 interveneInput.value = '';
@@ -3838,9 +4138,15 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                                 return;
                             }
                             
-                            if (window.chatHistory && window.chatHistory.length > 1) {
+                            if (chatHistory && chatHistory.length > 1) {
                                 simModal.classList.remove('hidden');
+                                // 确保重新打开时渲染最新的进度
+                                window.renderAiHistory();
                                 return; 
+                            } else if (chatHistory && chatHistory.length === 1 && fullTextHistory) {
+                                simModal.classList.remove('hidden');
+                                simOutputBox.innerHTML = fullTextHistory;
+                                return;
                             }
 
                             const assocTypeRadio = document.querySelector('input[name="listAssociation"]:checked');
@@ -4002,6 +4308,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                                 initHtml += '<div style="font-weight: bold; color: #b91c1c; font-size: 15px;"><i class="fa fa-hourglass-half"></i> 等待天道下达指令...</div>';
                                 initHtml += '<div style="font-size: 13px; margin-top: 4px;">请在下方输入框中写下你的推演要求（例如：“开始全场混战，详细描写招式与羁绊特效的碰撞，果断决出唯一胜者”），然后点击【发送指令】。</div></div>';
                                 initialVisualHistory = initHtml;
+                                saveCurrentAiSession();
                             };
 
                             let systemPrompt = window.currentAiRuleText + charText;
@@ -4021,6 +4328,7 @@ drawCountPlus.addEventListener('click', () => { let v = parseInt(drawCountModal.
                             fullTextHistory = initVisualHtml;
                             typedIndex = fullTextHistory.length; 
                             simOutputBox.innerHTML = fullTextHistory;
+                            saveCurrentAiSession();
                             
                             isPaused = false;
                             playPauseBtn.innerHTML = '<i class="fa fa-pause mr-1"></i> 暂停';
